@@ -245,7 +245,7 @@ patch(GP, [
      "static const int k_btns[] = {B_ZL, B_L, B_ZR, B_R, B_MINUS, B_PLUS, B_LS, B_RS};   // keys locked at touch-down (L3 / R3 only in the 3D layout)" + GATE),
     # capas de arte (sprites) por tecla + segunda zona del boton R
     ("    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key",
-     "    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key\n    CALayer *_art[B_N];   // sprites de los pictogramas del modo Silksong (subcapas de _key)\n    CAShapeLayer *_keyR2; CALayer *_artR2;   // segunda zona del boton R (habilidad) en el modo Silksong"),
+     "    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key\n    CALayer *_art[B_N];   // sprites de los pictogramas del modo Silksong (subcapas de _key)\n    CAShapeLayer *_keyR2; CALayer *_artR2;   // segunda zona del boton R (habilidad) en el modo Silksong\n    BOOL _r1On, _r2On;   // que zona de R esta pulsada, para iluminar solo esa"),
     ("""        for (int b = 0; b < B_N; b++) {
             _key[b] = shape(_controls);
             if (names[b]) _label[b] = label(_key[b], names[b]);   // the D-pad arms carry no label
@@ -268,6 +268,10 @@ patch(GP, [
      "- (CGFloat)faceGap { return [self silkActive] ? 0.115 * _layout.controls.size.width : K_FACE_GAP * self.u; }"),
     ("- (CGFloat)faceR { return K_FACE_R * self.u; }",
      "- (CGFloat)faceR { return [self silkActive] ? [self silkRoundR] : K_FACE_R * self.u; }"),
+    # radio de acierto mas justo en la reticula silk: con el x1.25 de fabrica los
+    # circulos de dos parejas (B/Y y X/A) se solapan y un toque cuenta como dos
+    ("- (CGFloat)faceHitR { return MAX(self.faceR * 1.25, _layout.separated ? 22 : 0); }",
+     "- (CGFloat)faceHitR { return [self silkActive] ? [self silkRoundR] * 1.05 : MAX(self.faceR * 1.25, _layout.separated ? 22 : 0); }"),
     ("- (CGPoint)facePos:(int)b { CGPoint c = self.faceCenter; CGFloat g = self.faceGap;",
      "- (CGPoint)facePos:(int)b { if ([self silkActive]) return [self silkCenterFor:b]; CGPoint c = self.faceCenter; CGFloat g = self.faceGap;"),
     # joystick en su sitio Android (radio medido)
@@ -290,7 +294,7 @@ patch(GP, [
         if (b == B_ZL || b == B_ZR || b == B_L || b == B_PLUS) { CGRect r = CGRectInset([self silkRectFor:b], -8 * u, -8 * u);
             if (!CGRectContainsPoint(r, p)) return CGFLOAT_MAX;
             return MAX(fabs(p.x - CGRectGetMidX(r)) / (r.size.width / 2), fabs(p.y - CGRectGetMidY(r)) / (r.size.height / 2)); }
-        if (b == B_R) return MIN(dist(p, [self silkCenterFor:B_R]), dist(p, [self silkSkillCenter])) / ([self silkRoundR] * 1.35);
+        if (b == B_R) return MIN(dist(p, [self silkCenterFor:B_R]), dist(p, [self silkSkillCenter])) / ([self silkRoundR] * 1.2);
     }"""),
     # dibujo silk al final de layoutSubviews
     ("    [CATransaction commit];\n    [self refresh];\n}",
@@ -298,9 +302,12 @@ patch(GP, [
     # relleno oscuro en reposo para los botones silk
     ("        _key[b].fillColor = (on ? k_on : k_idle).CGColor; _label[b].foregroundColor = (on ? k_textOn : k_text).CGColor; }",
      "        _key[b].fillColor = (on ? k_on : ([self silkActive] && silkBit(b) ? k_silkFill : k_idle)).CGColor; _label[b].foregroundColor = (on ? k_textOn : k_text).CGColor; }"),
-    # la segunda zona de R sigue el estado de R en refresh
+    # en refresh: calcular que zona de R esta pulsada segun donde esta el dedo
+    ("    uint64_t all = _faceBits | _dpadBits | _btnBits;",
+     "    if ([self silkActive]) { _r1On = NO; _r2On = NO; for (UITouch *t in _owner) { uint64_t v = [_owner objectForKey:t].unsignedLongLongValue; if ((v & 0xff) == C_BTN && (v >> 8) == B_R) { CGPoint p = [t locationInView:self]; if (dist(p, [self silkSkillCenter]) < dist(p, [self silkCenterFor:B_R])) _r2On = YES; else _r1On = YES; } } }\n    uint64_t all = _faceBits | _dpadBits | _btnBits;"),
+    # y que cada zona de R se ilumine solo cuando se pulsa ELLA, no su gemela
     ("    CGPoint h = self.stickHome, o = [self knobOffset:0];",
-     "    if (_keyR2) _keyR2.fillColor = _key[B_R].fillColor;\n    CGPoint h = self.stickHome, o = [self knobOffset:0];"),
+     "    if (_keyR2) { if ([self silkActive]) { _keyR2.fillColor = _r2On ? k_on : k_silkFill; _key[B_R].fillColor = _r1On ? k_on : k_silkFill; } else _keyR2.fillColor = _key[B_R].fillColor; }\n    CGPoint h = self.stickHome, o = [self knobOffset:0];"),
 ])
 
 if missing:
@@ -317,4 +324,4 @@ for n, line in enumerate((root / TSV).read_text(encoding="utf-8").split("\n"), 1
     if len(cols) >= 6 and cols[5] not in SECCIONES_OK:
         print(f"ERROR ESTRUCTURAL: {TSV}:{n}: sección no válida: {cols[5]!r}")
         sys.exit(1)
-print("Parche aplicado: lanzador en español + controles tipo Android para Silksong (v3).")
+print("Parche aplicado: lanzador en español + controles tipo Android para Silksong (v3.1).")
