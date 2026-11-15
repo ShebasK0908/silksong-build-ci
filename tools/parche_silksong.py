@@ -9,12 +9,27 @@
    010013C00E930000), dentro de dm/ios/Sources/DmGamepad.m: la disposición del
    port chino de Android, con la geometría MEDIDA sobre su captura de
    referencia y los pictogramas REALES de esa captura (sprites PNG extraídos
-   de ella, incrustados en base64 en tools/sprites/). Joystick abajo-izquierda;
-   dash ancho (ZR) y SELECT (-) a media izquierda; mapa (L), MENU y arpón (ZL)
-   arriba a la derecha; 6 redondos a la derecha con las poses de Hornet del
-   port: + , X (Needolin), B (saltar), A (curar), R (herramienta), Y (atacar).
-   Todo vive tras un gate por título y reutiliza los índices B_* existentes
-   (su orden es el orden de bits del host: no tocarlo).
+   de ella, incrustados en base64 en tools/sprites/).
+
+   Asignación v3 (verificada fotograma a fotograma contra los vídeos del
+   port de Android el 2026-11-15; la v2 tenía la tabla cruzada):
+   - Joystick abajo-izquierda: moverse.
+   - Botón ancho izquierdo: dash (ZR). SELECT (-): inventario.
+   - Arriba a la derecha: mapa (L), MENU = pausa (+), arpón (ZL).
+   - Rejilla 2x3 de redondos (posición -> acción):
+       arriba-izquierda  = R  (herramienta/habilidad)
+       arriba-derecha    = X  (Needolin)
+       medio-izquierda   = B  (saltar)
+       medio-derecha     = R  (herramienta/habilidad, segunda zona)
+       abajo-izquierda   = Y  (ATAQUE, la daga)
+       abajo-derecha     = A  (curar/vincular, aguja con remolino)
+     En el juego original herramienta y habilidad de seda son EL MISMO botón
+     (R): sin dirección = habilidad; con Arriba en el joystick = herramienta.
+     Por eso R tiene dos zonas táctiles, una por pictograma del port.
+   - El botón de ajustes de DmIOS (la tuerquita) queda EXACTAMENTE como viene
+     de fábrica: ni se mueve ni se le cambia el icono (petición del usuario,
+     2026-11-15). Lo único «original» que se conserva.
+   Los índices B_* no se tocan: su orden es el de los bits DM_BTN_* del host.
 
 Falla con error si alguna cadena esperada no aparece, para detectar cambios
 de upstream. Uso: python3 parche_silksong.py <ruta-al-clon-de-nxnative>
@@ -140,12 +155,16 @@ GATE = r'''
 // ---- Controles tactiles tipo Android, solo Silksong (build privada del usuario) ----
 // Disposicion del port chino de Silksong para Android sobre el layout 2D, con la
 // geometria medida sobre su captura y sus pictogramas reales (sprites PNG
-// incrustados en base64): joystick abajo-izquierda; dash (ZR) y SELECT (-)
-// a media izquierda; mapa (L), MENU y arpon (ZL) arriba a la derecha; 6 redondos
-// con las poses de Hornet: + , X (Needolin), B (saltar), A (curar),
-// R (herramienta), Y (atacar). Los indices B_* no se tocan: su orden es el de
-// los bits DM_BTN_* del host. Todo vive tras este gate; el resto de juegos y
-// los modos 3D/Tap quedan como estan.
+// incrustados en base64). Asignacion v3, verificada contra los videos del port:
+// joystick = moverse; dash = ZR; SELECT = - (inventario); mapa = L; MENU = +
+// (pausa); arpon = ZL. Rejilla de redondos: arriba-izquierda y medio-derecha
+// son el boton R (herramienta/habilidad: en el juego original es el mismo
+// boton; sin direccion = habilidad de seda, con Arriba = herramienta),
+// arriba-derecha = X (Needolin), medio-izquierda = B (saltar),
+// abajo-izquierda = Y (atacar, la daga), abajo-derecha = A (curar/vincular).
+// El boton de ajustes de DmIOS (la tuerquita) NO se toca: queda de fabrica.
+// Los indices B_* no se tocan: su orden es el de los bits DM_BTN_* del host.
+// Todo vive tras este gate; el resto de juegos y los modos 3D/Tap quedan igual.
 #ifndef DM_GAME_ID
 #define DM_GAME_ID ""
 #endif
@@ -156,49 +175,58 @@ static UIImage *silkImg(NSString *s) { NSData *d = [[NSData alloc] initWithBase6
 
 HELPERS = r'''- (BOOL)silkActive { return silkPad() && !_full && !_tap && !_layout.separated; }
 - (CGFloat)silkRoundR { return 0.0355 * _layout.controls.size.width; }
-- (CGFloat)silkMenuR { return 0.030 * _layout.controls.size.width; }
-- (CGRect)silkMenuRect { CGRect c = _layout.controls; return CGRectMake(CGRectGetMinX(c) + 0.783 * c.size.width, CGRectGetMinY(c) + 0.201 * c.size.height, 0.043 * c.size.width, 0.113 * c.size.height); }
 - (CGRect)silkRectFor:(int)b { CGRect c = _layout.controls; CGFloat x = CGRectGetMinX(c), y = CGRectGetMinY(c), w = c.size.width, h = c.size.height;
     switch (b) { case B_ZR: return CGRectMake(x + 0.039 * w, y + 0.257 * h, 0.103 * w, 0.114 * h);
         case B_L: return CGRectMake(x + 0.866 * w, y + 0.031 * h, 0.090 * w, 0.114 * h);
         case B_ZL: return CGRectMake(x + 0.866 * w, y + 0.201 * h, 0.090 * w, 0.114 * h);
+        case B_PLUS: return CGRectMake(x + 0.783 * w, y + 0.201 * h, 0.043 * w, 0.113 * h);
         default: return CGRectMake(x + 0.162 * w, y + 0.264 * h, 0.046 * w, 0.098 * h); } }   // B_MINUS (SELECT)
 - (CGPoint)silkCenterFor:(int)b { CGRect c = _layout.controls; CGFloat x = CGRectGetMinX(c), y = CGRectGetMinY(c), w = c.size.width, h = c.size.height;
-    switch (b) { case B_PLUS: return CGPointMake(x + 0.807 * w, y + 0.461 * h);
+    switch (b) { case B_R: return CGPointMake(x + 0.807 * w, y + 0.461 * h);
         case B_X: return CGPointMake(x + 0.899 * w, y + 0.428 * h);
         case B_B: return CGPointMake(x + 0.795 * w, y + 0.663 * h);
-        case B_A: return CGPointMake(x + 0.891 * w, y + 0.606 * h);
-        case B_R: return CGPointMake(x + 0.792 * w, y + 0.846 * h);
-        default: return CGPointMake(x + 0.895 * w, y + 0.835 * h); } }   // B_Y
+        case B_Y: return CGPointMake(x + 0.792 * w, y + 0.846 * h);
+        default: return CGPointMake(x + 0.895 * w, y + 0.835 * h); } }   // B_A
+- (CGPoint)silkSkillCenter { CGRect c = _layout.controls; return CGPointMake(CGRectGetMinX(c) + 0.891 * c.size.width, CGRectGetMinY(c) + 0.606 * c.size.height); }
 '''
 
+# Los sprites se nombran por su MOTIVO (el dibujo), no por el bit: cada
+# pictograma va en su posición del port de Android y el bit sigue a la acción.
+#   y.png    = aguja con remolino  -> posición abajo-derecha  -> bit B_A (curar)
+#   r.png    = daga                -> posición abajo-izquierda -> bit B_Y (atacar)
+#   plus.png = cabeza en picado    -> posición arriba-izquierda -> bit B_R (herramienta)
+#   a.png    = Hornet de pie       -> posición medio-derecha  -> 2ª zona de B_R (habilidad)
+#   menu.png = emblema             -> zona MENU               -> bit B_PLUS (pausa)
 ART_INIT = r'''        if (silkPad()) {
             static NSString *const artB64[B_N] = { [B_A] = @"__A__", [B_B] = @"__B__", [B_X] = @"__X__", [B_Y] = @"__Y__", [B_R] = @"__R__", [B_PLUS] = @"__PLUS__", [B_ZR] = @"__ZR__", [B_ZL] = @"__ZL__", [B_L] = @"__L__", [B_MINUS] = @"__MINUS__" };
             for (int b = 0; b < B_N; b++) if (artB64[b]) { UIImage *im = silkImg(artB64[b]); if (im) _art[b].contents = (id)im.CGImage; }
-            _silkMenuImage = silkImg(@"__MENU__");
+            UIImage *imS = silkImg(@"__SKILL__"); if (imS) _artR2.contents = (id)imS.CGImage;
         }
 '''
-for token, name in [("__A__", "a"), ("__B__", "b"), ("__X__", "x"), ("__Y__", "y"),
-                    ("__R__", "r"), ("__PLUS__", "plus"), ("__ZR__", "zr"),
+for token, name in [("__A__", "y"), ("__B__", "b"), ("__X__", "x"), ("__Y__", "r"),
+                    ("__R__", "plus"), ("__PLUS__", "menu"), ("__ZR__", "zr"),
                     ("__ZL__", "zl"), ("__L__", "l"), ("__MINUS__", "minus"),
-                    ("__MENU__", "menu")]:
+                    ("__SKILL__", "a")]:
     ART_INIT = ART_INIT.replace(token, b64(name))
 
 LAYOUT_BLOCK = r'''    if ([self silkActive]) {
-        for (int b = 0; b < B_N; b++) if (_label[b]) _label[b].hidden = b != B_MINUS;
+        for (int b = 0; b < B_N; b++) if (_label[b]) _label[b].hidden = b != B_MINUS && b != B_PLUS;
         setPath(_key[B_ZL], CGPathCreateWithRoundedRect([self silkRectFor:B_ZL], 12 * u, 12 * u, NULL));
         setPath(_key[B_ZR], CGPathCreateWithRoundedRect([self silkRectFor:B_ZR], 12 * u, 12 * u, NULL));
         setPath(_key[B_L], CGPathCreateWithRoundedRect([self silkRectFor:B_L], 12 * u, 12 * u, NULL));
+        setPath(_key[B_PLUS], CGPathCreateWithRoundedRect([self silkRectFor:B_PLUS], 10 * u, 10 * u, NULL));
         setPath(_key[B_R], circlePath([self silkCenterFor:B_R], [self silkRoundR]));
-        setPath(_key[B_PLUS], circlePath([self silkCenterFor:B_PLUS], [self silkRoundR]));
+        setPath(_keyR2, circlePath([self silkSkillCenter], [self silkRoundR]));
         for (int b = 0; b < B_N; b++) { if (!silkBit(b)) continue;
             if (b == B_ZL || b == B_ZR || b == B_L) _art[b].frame = [self silkRectFor:b];
             else if (b == B_MINUS) { CGRect rc = [self silkRectFor:b]; CGFloat aw = rc.size.width * 0.85; _art[b].frame = CGRectMake(CGRectGetMidX(rc) - aw / 2, CGRectGetMinY(rc) + rc.size.height * 0.06, aw, aw * 58.0 / 71.0); }
+            else if (b == B_PLUS) { CGRect rc = [self silkRectFor:b]; CGFloat ah = rc.size.height * 0.58; CGFloat aw = ah * 86.0 / 115.0; _art[b].frame = CGRectMake(CGRectGetMidX(rc) - aw / 2, CGRectGetMinY(rc) + rc.size.height * 0.05, aw, ah); }
             else { CGPoint cc = [self silkCenterFor:b]; CGFloat rr = [self silkRoundR]; _art[b].frame = CGRectMake(cc.x - rr, cc.y - rr, 2 * rr, 2 * rr); } }
+        { CGPoint sc = [self silkSkillCenter]; CGFloat rr = [self silkRoundR]; _artR2.frame = CGRectMake(sc.x - rr, sc.y - rr, 2 * rr, 2 * rr); }
         _label[B_MINUS].string = @"SELECT"; placeLabel(_label[B_MINUS], CGPointMake(CGRectGetMidX([self silkRectFor:B_MINUS]), CGRectGetMinY([self silkRectFor:B_MINUS]) + [self silkRectFor:B_MINUS].size.height * 0.80), 10 * u);
-        if (_silkMenuImage) [_menu setImage:_silkMenuImage forState:UIControlStateNormal];
-        _menu.frame = [self silkMenuRect]; _menu.layer.cornerRadius = 10 * u;
-        _menu.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:_menu.bounds cornerRadius:10 * u].CGPath;
+        { CGRect lf = _label[B_MINUS].frame; _label[B_MINUS].frame = CGRectMake(CGRectGetMidX(lf) - 32 * u, lf.origin.y, 64 * u, lf.size.height); }
+        _label[B_PLUS].string = @"MENU"; placeLabel(_label[B_PLUS], CGPointMake(CGRectGetMidX([self silkRectFor:B_PLUS]), CGRectGetMinY([self silkRectFor:B_PLUS]) + [self silkRectFor:B_PLUS].size.height * 0.86), 10 * u);
+        { CGRect lf = _label[B_PLUS].frame; _label[B_PLUS].frame = CGRectMake(CGRectGetMidX(lf) - 32 * u, lf.origin.y, 64 * u, lf.size.height); }
         CGFloat kr = [self stickR:0] * 0.4; _knob.bounds = CGRectMake(0, 0, 2 * kr, 2 * kr); setPath(_knob, circlePath(CGPointMake(kr, kr), kr));
         CAShapeLayer *kin = (CAShapeLayer *)_knob.sublayers.firstObject; CGPathRef kip = circlePath(CGPointMake(kr, kr), kr * 0.62); kin.frame = _knob.bounds; kin.path = kip; CGPathRelease(kip);
     }
@@ -215,9 +243,9 @@ patch(GP, [
     # gate + helpers de bits, tras la lista de teclas bloqueadas
     ("static const int k_btns[] = {B_ZL, B_L, B_ZR, B_R, B_MINUS, B_PLUS, B_LS, B_RS};   // keys locked at touch-down (L3 / R3 only in the 3D layout)",
      "static const int k_btns[] = {B_ZL, B_L, B_ZR, B_R, B_MINUS, B_PLUS, B_LS, B_RS};   // keys locked at touch-down (L3 / R3 only in the 3D layout)" + GATE),
-    # capas de arte (sprites) por tecla + imagen del menu
+    # capas de arte (sprites) por tecla + segunda zona del boton R
     ("    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key",
-     "    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key\n    CALayer *_art[B_N];   // sprites de los pictogramas del modo Silksong (subcapas de _key)\n    UIImage *_silkMenuImage;   // emblema MENU del modo Silksong"),
+     "    CAShapeLayer *_key[B_N]; CATextLayer *_label[B_N];   // one layer per key\n    CALayer *_art[B_N];   // sprites de los pictogramas del modo Silksong (subcapas de _key)\n    CAShapeLayer *_keyR2; CALayer *_artR2;   // segunda zona del boton R (habilidad) en el modo Silksong"),
     ("""        for (int b = 0; b < B_N; b++) {
             _key[b] = shape(_controls);
             if (names[b]) _label[b] = label(_key[b], names[b]);   // the D-pad arms carry no label
@@ -227,10 +255,12 @@ patch(GP, [
             if (names[b]) _label[b] = label(_key[b], names[b]);   // the D-pad arms carry no label
             _art[b] = [CALayer layer]; _art[b].hidden = !silkPad(); [_key[b] addSublayer:_art[b]];
         }
+        _keyR2 = shape(_controls); _keyR2.hidden = !silkPad();
+        _artR2 = [CALayer layer]; _artR2.hidden = !silkPad(); [_keyR2 addSublayer:_artR2];
 """ + ART_INIT),
     # visibilidad segun el conjunto silk
     ("    for (int b = 0; b < B_N; b++) _key[b].hidden = _tap || (fullOnly(b) && !_full);",
-     "    BOOL silk = [self silkActive];\n    for (int b = 0; b < B_N; b++) _key[b].hidden = _tap || (silk ? !silkBit(b) : (fullOnly(b) && !_full));"),
+     "    BOOL silk = [self silkActive];\n    for (int b = 0; b < B_N; b++) _key[b].hidden = _tap || (silk ? !silkBit(b) : (fullOnly(b) && !_full));\n    _keyR2.hidden = _tap || !silk;"),
     # geometria: centro/radio del diamante pasan a ser la reticula silk
     ("- (CGPoint)faceCenter { CGRect s = self.corner; CGFloat u = self.u;",
      "- (CGPoint)faceCenter { if ([self silkActive]) { CGRect c = _layout.controls; return CGPointMake(CGRectGetMinX(c) + 0.847 * c.size.width, CGRectGetMinY(c) + 0.632 * c.size.height); } CGRect s = self.corner; CGFloat u = self.u;"),
@@ -248,24 +278,19 @@ patch(GP, [
     # SELECT usa su rect silk (la rama de pastillas lo recoge)
     ("- (CGRect)pillRect:(int)b { CGRect s = self.safe;",
      "- (CGRect)pillRect:(int)b { if ([self silkActive] && b == B_MINUS) return [self silkRectFor:b]; CGRect s = self.safe;"),
-    # el boton de menu se mueve a la zona MENU
-    ("- (CGPoint)menuCenter { CGRect s = self.safe;",
-     "- (CGPoint)menuCenter { if ([self silkActive]) { CGRect c = _layout.controls; return CGPointMake(CGRectGetMinX(c) + 0.8045 * c.size.width, CGRectGetMinY(c) + 0.2575 * c.size.height); } CGRect s = self.safe;"),
-    ("- (CGFloat)menuDistance:(CGPoint)p { return dist(p, self.menuCenter) / MAX(K_MENU_R * self.u * 1.6, 22); }",
-     "- (CGFloat)menuDistance:(CGPoint)p { return dist(p, self.menuCenter) / MAX(([self silkActive] ? [self silkMenuR] : K_MENU_R * self.u) * 1.6, 22); }"),
-    # metodos auxiliares, antes de menuDistance
+    # metodos auxiliares, antes de menuDistance (que NO se toca: la tuerquita queda de fabrica)
     ("- (CGFloat)menuDistance:(CGPoint)p {",
      HELPERS + "- (CGFloat)menuDistance:(CGPoint)p {"),
-    # hit de las zonas silk (rects anchos y redondos sueltos) antes de las categorias clasicas
+    # hit de las zonas silk (rects anchos, MENU y los dos redondos de R) antes de las categorias clasicas
     ("""- (CGFloat)buttonDistance:(int)b point:(CGPoint)p {
     CGFloat u = self.u;""",
      """- (CGFloat)buttonDistance:(int)b point:(CGPoint)p {
     CGFloat u = self.u;
     if ([self silkActive]) {
-        if (b == B_ZL || b == B_ZR || b == B_L) { CGRect r = CGRectInset([self silkRectFor:b], -8 * u, -8 * u);
+        if (b == B_ZL || b == B_ZR || b == B_L || b == B_PLUS) { CGRect r = CGRectInset([self silkRectFor:b], -8 * u, -8 * u);
             if (!CGRectContainsPoint(r, p)) return CGFLOAT_MAX;
             return MAX(fabs(p.x - CGRectGetMidX(r)) / (r.size.width / 2), fabs(p.y - CGRectGetMidY(r)) / (r.size.height / 2)); }
-        if (b == B_R || b == B_PLUS) return dist(p, [self silkCenterFor:b]) / ([self silkRoundR] * 1.35);
+        if (b == B_R) return MIN(dist(p, [self silkCenterFor:B_R]), dist(p, [self silkSkillCenter])) / ([self silkRoundR] * 1.35);
     }"""),
     # dibujo silk al final de layoutSubviews
     ("    [CATransaction commit];\n    [self refresh];\n}",
@@ -273,6 +298,9 @@ patch(GP, [
     # relleno oscuro en reposo para los botones silk
     ("        _key[b].fillColor = (on ? k_on : k_idle).CGColor; _label[b].foregroundColor = (on ? k_textOn : k_text).CGColor; }",
      "        _key[b].fillColor = (on ? k_on : ([self silkActive] && silkBit(b) ? k_silkFill : k_idle)).CGColor; _label[b].foregroundColor = (on ? k_textOn : k_text).CGColor; }"),
+    # la segunda zona de R sigue el estado de R en refresh
+    ("    CGPoint h = self.stickHome, o = [self knobOffset:0];",
+     "    if (_keyR2) _keyR2.fillColor = _key[B_R].fillColor;\n    CGPoint h = self.stickHome, o = [self knobOffset:0];"),
 ])
 
 if missing:
@@ -289,4 +317,4 @@ for n, line in enumerate((root / TSV).read_text(encoding="utf-8").split("\n"), 1
     if len(cols) >= 6 and cols[5] not in SECCIONES_OK:
         print(f"ERROR ESTRUCTURAL: {TSV}:{n}: sección no válida: {cols[5]!r}")
         sys.exit(1)
-print("Parche aplicado: lanzador en español + controles tipo Android para Silksong.")
+print("Parche aplicado: lanzador en español + controles tipo Android para Silksong (v3).")
