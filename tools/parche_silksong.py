@@ -307,7 +307,7 @@ patch(GP, [
      "    if ([self silkActive]) { _r1On = NO; _r2On = NO; for (UITouch *t in _owner) { uint64_t v = [_owner objectForKey:t].unsignedLongLongValue; if ((v & 0xff) == C_BTN && (v >> 8) == B_R) { CGPoint p = [t locationInView:self]; if (dist(p, [self silkSkillCenter]) < dist(p, [self silkCenterFor:B_R])) _r2On = YES; else _r1On = YES; } } }\n    uint64_t all = _faceBits | _dpadBits | _btnBits;"),
     # y que cada zona de R se ilumine solo cuando se pulsa ELLA, no su gemela
     ("    CGPoint h = self.stickHome, o = [self knobOffset:0];",
-     "    if (_keyR2) { if ([self silkActive]) { _keyR2.fillColor = _r2On ? k_on : k_silkFill; _key[B_R].fillColor = _r1On ? k_on : k_silkFill; } else _keyR2.fillColor = _key[B_R].fillColor; }\n    CGPoint h = self.stickHome, o = [self knobOffset:0];"),
+     "    if (_keyR2) { if ([self silkActive]) { _keyR2.fillColor = (_r2On ? k_on : k_silkFill).CGColor; _key[B_R].fillColor = (_r1On ? k_on : k_silkFill).CGColor; } else _keyR2.fillColor = _key[B_R].fillColor; }\n    CGPoint h = self.stickHome, o = [self knobOffset:0];"),
 ])
 
 if missing:
